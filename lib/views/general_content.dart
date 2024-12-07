@@ -1,13 +1,100 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mvvm_sqlite_app/constant/color.dart';
+import 'package:flutter_mvvm_sqlite_app/services/database_helper.dart';
 
-class GeneralContent extends StatelessWidget {
+class GeneralContent extends StatefulWidget {
+  const GeneralContent({super.key});
+
+  @override
+  State<GeneralContent> createState() => _GeneralContentState();
+}
+
+class _GeneralContentState extends State<GeneralContent> {
+  final TextEditingController itemController = TextEditingController();
   final TextEditingController quantityController = TextEditingController();
   final TextEditingController priceController = TextEditingController();
-  final TextEditingController reasonController = TextEditingController();
   final TextEditingController discountController = TextEditingController();
+  final List<Map<String, dynamic>> tableData = [];
+  final DatabaseHelper dbHelper = DatabaseHelper();
 
-  GeneralContent({super.key});
+  double netAmount = 0;
+
+  List<Map<String, dynamic>> suggestions = [];
+
+  void _searchItems(String query) async {
+    FocusScope.of(context).unfocus();
+    if (query.isNotEmpty) {
+      final results = await dbHelper.searchItems(query);
+      setState(() {
+        suggestions = results;
+      });
+    } else {
+      setState(() {
+        suggestions.clear();
+      });
+    }
+  }
+
+  void _selectItem(Map<String, dynamic> item) {
+    setState(() {
+      itemController.text = item['name'];
+      priceController.text = item['price'].toString();
+
+      // Ensure suggestions is a mutable list
+      suggestions = List.from(suggestions);
+      suggestions.clear();
+    });
+  }
+
+  void _addToTable() {
+    final String itemName = itemController.text;
+    final double price = double.tryParse(priceController.text) ?? 0;
+    final int quantity = int.tryParse(quantityController.text) ?? 1;
+    final double discount = double.tryParse(discountController.text) ?? 0;
+
+    if (itemName.isEmpty || price <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter valid item details')),
+      );
+      return;
+    }
+
+    final double total = (price * quantity) * (100 - discount) / 100;
+
+    setState(() {
+      tableData.add({
+        'item_name': itemName,
+        'price': price,
+        'quantity': quantity,
+        'discount': discount,
+        'total': total,
+      });
+      netAmount += total;
+      itemController.clear();
+      priceController.clear();
+      quantityController.clear();
+      discountController.clear();
+    });
+  }
+
+  void _saveData() async {
+    if (tableData.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No data to save')),
+      );
+      return;
+    }
+
+    await dbHelper.saveQuotations(tableData);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Data saved successfully!')),
+    );
+
+    setState(() {
+      tableData.clear();
+      netAmount = 0;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,9 +108,9 @@ class GeneralContent extends StatelessWidget {
             color: kPrimaryColor,
             borderRadius: BorderRadius.circular(4),
           ),
-          child: const Text(
-            'Net Amount: 1,900',
-            style: TextStyle(
+          child: Text(
+            'Net Amount: $netAmount',
+            style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
               fontSize: 16,
@@ -32,16 +119,33 @@ class GeneralContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        const TextField(
-          decoration: InputDecoration(labelText: 'Item'),
+        TextField(
+          controller: itemController,
+          keyboardType: TextInputType.number,
+          onChanged: _searchItems,
+          decoration: const InputDecoration(labelText: 'Item'),
         ),
+        if (suggestions.isNotEmpty)
+          Container(
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: ListView.builder(
+              itemCount: suggestions.length,
+              itemBuilder: (context, index) {
+                final item = suggestions[index];
+                return ListTile(
+                  title: Text(item['name']),
+                  subtitle: Text('Price: ${item['price']}'),
+                  onTap: () => _selectItem(item),
+                );
+              },
+            ),
+          ),
         const SizedBox(height: 8),
-        const TextField(
-          decoration: InputDecoration(labelText: 'Reason'),
-        ),
-        const SizedBox(height: 8),
-        const TextField(
-          decoration: InputDecoration(labelText: 'Price'),
+        TextField(
+          controller: priceController,
+          keyboardType: TextInputType.number,
+          readOnly: true,
+          decoration: const InputDecoration(labelText: 'Price'),
         ),
         const SizedBox(height: 8),
         Row(
@@ -63,7 +167,7 @@ class GeneralContent extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             ElevatedButton(
-              onPressed: () {},
+              onPressed: _addToTable,
               style: ElevatedButton.styleFrom(
                 backgroundColor: kPrimaryColor,
                 shape: RoundedRectangleBorder(
@@ -75,7 +179,6 @@ class GeneralContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        // Responsive DataTable
         LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
@@ -84,59 +187,46 @@ class GeneralContent extends StatelessWidget {
                 constraints: BoxConstraints(minWidth: constraints.maxWidth),
                 child: DataTable(
                   columnSpacing: 20.0,
-                  columns: [
-                    const DataColumn(
+                  columns: const [
+                    DataColumn(
                         label: Text('Item',
                             style: TextStyle(fontWeight: FontWeight.bold))),
                     DataColumn(
-                      label: Container(
-                        alignment:
-                            Alignment.centerRight, // Aligns text to the right
-                        child: const Text(
-                          'Price',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
+                        label: Text('Price',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
                     DataColumn(
-                        label: Container(
-                      alignment: Alignment.centerRight,
-                      child: const Text('Qty',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                    )),
+                        label: Text('Qty',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
                     DataColumn(
-                        label: Container(
-                      alignment: Alignment.centerRight,
-                      child: const Text('Discount',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                    )),
+                        label: Text('Discount',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
                     DataColumn(
-                        label: Container(
-                      alignment: Alignment.centerRight,
-                      child: const Text('Total',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                    )),
+                        label: Text('Total',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
                   ],
-                  rows: const [
-                    DataRow(cells: [
-                      DataCell(Text('Item 1')),
-                      DataCell(Text('1,000')),
-                      DataCell(Text('2')),
-                      DataCell(Text('100')),
-                      DataCell(Text('1,900')),
-                    ]),
-                    DataRow(cells: [
-                      DataCell(Text('Test 2')),
-                      DataCell(Text('1,000')),
-                      DataCell(Text('2')),
-                      DataCell(Text('100')),
-                      DataCell(Text('1,900')),
-                    ]),
-                  ],
+                  rows: tableData
+                      .map(
+                        (row) => DataRow(cells: [
+                          DataCell(Text(row['item_name'])),
+                          DataCell(Text(row['price'].toString())),
+                          DataCell(Text(row['quantity'].toString())),
+                          DataCell(Text('${row['discount']}%')),
+                          DataCell(Text(row['total'].toStringAsFixed(2))),
+                        ]),
+                      )
+                      .toList(),
                 ),
               ),
             );
           },
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: _saveData,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: kPrimaryColor,
+          ),
+          child: const Text('SAVE', style: TextStyle(color: Colors.white)),
         ),
       ],
     );

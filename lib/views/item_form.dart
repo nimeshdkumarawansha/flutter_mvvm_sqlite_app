@@ -70,6 +70,7 @@ class _ItemFormState extends State<ItemForm> {
       children: [
         TextField(
           controller: itemNameController,
+          keyboardType: TextInputType.text,
           decoration: const InputDecoration(labelText: 'Item Name'),
         ),
         const SizedBox(height: 8),

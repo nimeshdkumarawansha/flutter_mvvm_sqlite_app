@@ -50,6 +50,15 @@ class DatabaseHelper {
     return db.query('Item_Details');
   }
 
+  Future<List<Map<String, dynamic>>> searchItems(String query) async {
+    final db = await database;
+    return db.query(
+      'Item_Details',
+      where: 'name LIKE ?',
+      whereArgs: ['%$query%'],
+    );
+  }
+
   Future<int> insertItem(String name, double price) async {
     final db = await database;
     return db.insert(
@@ -61,6 +70,18 @@ class DatabaseHelper {
   Future<int> saveQuotation(Map<String, dynamic> quotation) async {
     final db = await database;
     return db.insert('Quotations', quotation);
+  }
+
+  /// New Method: Save Multiple Quotations
+  Future<void> saveQuotations(List<Map<String, dynamic>> quotations) async {
+    final db = await database;
+    final batch = db.batch();
+
+    for (final quotation in quotations) {
+      batch.insert('Quotations', quotation);
+    }
+
+    await batch.commit(noResult: true);
   }
 
   Future<List<Map<String, dynamic>>> fetchQuotations() async {
