@@ -35,17 +35,25 @@ class _ItemFormState extends State<ItemForm> {
   }
 
   Future<void> _addItem() async {
-    final name = itemNameController.text;
-    final price = itemPriceController.text;
+    final name = itemNameController.text.trim();
+    final priceText = itemPriceController.text.trim();
 
-    if (name.isEmpty || price.isEmpty) {
+    if (name.isEmpty || priceText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all fields.')),
       );
       return;
     }
 
-    await dbHelper.insertItem(name, price as double);
+    final price = double.tryParse(priceText);
+    if (price == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid number for price.')),
+      );
+      return;
+    }
+
+    await dbHelper.insertItem(name, price);
     itemNameController.clear();
     itemPriceController.clear();
     await _loadItems();
