@@ -3,18 +3,22 @@ import 'package:flutter_mvvm_sqlite_app/constant/color.dart';
 import 'package:flutter_mvvm_sqlite_app/services/database_helper.dart';
 
 class GeneralContent extends StatefulWidget {
-  const GeneralContent({super.key});
+  final Function(List<Map<String, dynamic>>) onSave; // Change callback to pass data
+
+  const GeneralContent({super.key, required this.onSave});
 
   @override
-  State<GeneralContent> createState() => _GeneralContentState();
+  State<GeneralContent> createState() => GeneralContentState();
 }
 
-class _GeneralContentState extends State<GeneralContent> {
+class GeneralContentState extends State<GeneralContent> {
   final TextEditingController itemController = TextEditingController();
   final TextEditingController quantityController = TextEditingController();
   final TextEditingController priceController = TextEditingController();
   final TextEditingController discountController = TextEditingController();
-  final List<Map<String, dynamic>> tableData = [];
+  
+  // Make tableData public so it can be accessed from outside
+  List<Map<String, dynamic>> tableData = [];
   final DatabaseHelper dbHelper = DatabaseHelper();
 
   double netAmount = 0;
@@ -77,25 +81,6 @@ class _GeneralContentState extends State<GeneralContent> {
     });
   }
 
-  void _saveData() async {
-    if (tableData.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No data to save')),
-      );
-      return;
-    }
-
-    await dbHelper.saveQuotations(tableData);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Data saved successfully!')),
-    );
-
-    setState(() {
-      tableData.clear();
-      netAmount = 0;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -109,7 +94,7 @@ class _GeneralContentState extends State<GeneralContent> {
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
-            'Net Amount: $netAmount',
+            'Net Amount: ${netAmount.toStringAsFixed(2)}',
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -219,14 +204,6 @@ class _GeneralContentState extends State<GeneralContent> {
               ),
             );
           },
-        ),
-        const SizedBox(height: 16),
-        ElevatedButton(
-          onPressed: _saveData,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: kPrimaryColor,
-          ),
-          child: const Text('SAVE', style: TextStyle(color: Colors.white)),
         ),
       ],
     );

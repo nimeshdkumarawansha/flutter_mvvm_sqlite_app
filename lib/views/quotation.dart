@@ -14,7 +14,7 @@ class QuotationView extends StatefulWidget {
 
 class _QuotationViewState extends State<QuotationView> {
   final ValueNotifier<bool> isGeneralView = ValueNotifier<bool>(true);
-  final List<Map<String, String>> items = [];
+  final GlobalKey<GeneralContentState> _generalContentKey = GlobalKey<GeneralContentState>();
 
   @override
   void dispose() {
@@ -22,10 +22,30 @@ class _QuotationViewState extends State<QuotationView> {
     super.dispose();
   }
 
+  void _saveData() async {
+    if (isGeneralView.value) {
+      final generalContentState = _generalContentKey.currentState;
+      
+      if (generalContentState != null && generalContentState.tableData.isNotEmpty) {
+        // Here you would typically save to database
+        // For example:
+        // await dbHelper.saveQuotations(generalContentState.tableData);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Saved ${generalContentState.tableData.length} items')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No items to save')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const QuotationAppBar(),
+      appBar: QuotationAppBar(onSave: _saveData),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -38,7 +58,14 @@ class _QuotationViewState extends State<QuotationView> {
             ValueListenableBuilder<bool>(
               valueListenable: isGeneralView,
               builder: (context, isGeneral, child) {
-                return isGeneral ? GeneralContent() : const ItemForm();
+                return isGeneral
+                    ? GeneralContent(
+                        key: _generalContentKey, 
+                        onSave: (tableData) {
+                          // Optional: you can add any additional logic here if needed
+                        }
+                      )
+                    : const ItemForm();
               },
             ),
           ],
